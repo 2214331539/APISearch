@@ -1,0 +1,80 @@
+# OS / editor noise
+.DS_Store
+.idea/
+.vscode/
+
+# Dependencies and build output
+node_modules/
+frontend/node_modules/
+frontend/dist/
+backend/.venv/
+
+# Python runtime
+__pycache__/
+.pytest_cache/
+*.py[cod]
+storage/pycache/
+
+# Local env files
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Runtime storage
+storage/apis.json
+storage/jobs.json
+storage/uploads/
+storage/snapshots/
+storage/tmp/
+storage/cache/
+
+# API source documents and generated API document indexes
+API服务*/
+api_index*.json
+接口文档汇总*.md
+*.dts
+*.openapi.json
+*.openapi.yaml
+*.openapi.yml
+openapi*.json
+openapi*.yaml
+openapi*.yml
+
+# Vector databases and embedding indexes
+storage/vector*/
+storage/vectors*/
+storage/qdrant*/
+storage/chroma*/
+storage/chromadb*/
+storage/faiss*/
+storage/milvus*/
+storage/weaviate*/
+storage/lancedb*/
+qdrant_storage/
+chroma/
+chroma_db/
+chromadb/
+faiss_index/
+lancedb/
+milvus/
+weaviate/
+*.faiss
+*.index
+*.hnsw
+*.ann
+*.vec
+*.npy
+*.npz
+
+# Local database files used for indexes or vector stores
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
