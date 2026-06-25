@@ -35,6 +35,24 @@ export type ApiDoc = {
   updated_at: string;
 };
 
+export type ApiSummary = {
+  api_id: string;
+  name: string;
+  number: string;
+  url: string;
+  http_method: string;
+  cloud: string;
+  app: string;
+  api_type: string;
+};
+
+export type ApiListResponse = {
+  total: number;
+  limit: number;
+  offset: number;
+  items: ApiSummary[];
+};
+
 export type UploadJob = {
   job_id: string;
   status: "queued" | "parsing" | "indexing" | "completed" | "failed";

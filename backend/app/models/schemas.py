@@ -43,6 +43,24 @@ class ApiDoc(BaseModel):
     updated_at: datetime
 
 
+class ApiSummary(BaseModel):
+    api_id: str
+    name: str
+    number: str = ""
+    url: str = ""
+    http_method: str = "POST"
+    cloud: str = ""
+    app: str = ""
+    api_type: str = ""
+
+
+class ApiListResponse(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    items: List[ApiSummary] = Field(default_factory=list)
+
+
 class UploadJob(BaseModel):
     job_id: str
     status: Literal["queued", "parsing", "indexing", "completed", "failed"]

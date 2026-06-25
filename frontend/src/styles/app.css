@@ -775,9 +775,15 @@ pre {
 
 .doc-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
   margin-top: 14px;
+}
+
+/* 网格/弹性子项必须能收缩到 0，否则内部 560px 的表格会把容器撑破 */
+.doc-grid > div,
+.template-grid > * {
+  min-width: 0;
 }
 
 .param-table-wrap {
@@ -1036,5 +1042,237 @@ pre {
 
   .meta-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* --- Mode toggle (检索 / 浏览) --- */
+.mode-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-soft);
+}
+
+.mode-toggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.mode-toggle button.active {
+  background: #fff;
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(32, 33, 35, 0.08);
+}
+
+.panel-hint {
+  margin: 2px 0 8px;
+  color: var(--faint);
+  font-size: 0.76rem;
+}
+
+/* --- Browse panel --- */
+.browse-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  margin-top: 4px;
+}
+
+.browse-clouds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.browse-clouds button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.browse-clouds button.active {
+  border-color: rgba(47, 125, 104, 0.32);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.browse-clouds button strong {
+  color: var(--accent-2);
+  font-size: 0.78rem;
+}
+
+.browse-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.browse-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+}
+
+.browse-title h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.browse-count {
+  padding: 2px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-soft);
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.browse-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.browse-search {
+  min-width: 220px;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 0.84rem;
+}
+
+.browse-list {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.browse-app-head {
+  margin-top: 10px;
+  padding: 4px 2px;
+  color: var(--accent-2);
+  font-size: 0.78rem;
+  font-weight: 650;
+  border-bottom: 1px dashed var(--line);
+}
+
+.browse-item:first-child .browse-app-head {
+  margin-top: 0;
+}
+
+.browse-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #fff;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.browse-row:hover {
+  border-color: var(--line-strong);
+  background: var(--panel-soft);
+}
+
+.browse-row .method {
+  display: grid;
+  place-items: center;
+  padding: 3px 0;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-soft);
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.browse-row-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.browse-row-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.88rem;
+}
+
+.browse-row-url {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  color: var(--muted);
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.browse-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--faint);
+}
+
+.browse-row-meta code {
+  color: var(--accent);
+  font-size: 0.74rem;
+}
+
+.load-more {
+  align-self: center;
+  margin-top: 4px;
+}
+
+@media (max-width: 760px) {
+  .browse-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .browse-search {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .browse-row {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .browse-row-meta {
+    display: none;
   }
 }

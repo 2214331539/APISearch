@@ -1,13 +1,16 @@
-import { AlertTriangle, Boxes, Clock3, Database, FileJson2, Layers3, RefreshCw, Sparkles } from "lucide-react";
+import { AlertTriangle, Boxes, Clock3, Compass, Database, FileJson2, Layers3, RefreshCw, Search, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { getApiDetail, getStats, getUploadJob, searchApis, uploadDocs } from "./api/client";
 import type { ApiDoc, IndexStats, SearchDoc, SearchFilters, SearchResponse, UploadJob } from "./api/types";
 import { ApiDetailDrawer } from "./components/ApiDetailDrawer";
+import { BrowsePanel } from "./components/BrowsePanel";
 import { JsonTemplate } from "./components/JsonTemplate";
 import { ParamTable } from "./components/ParamTable";
 import { ResultList } from "./components/ResultList";
 import { SearchPanel } from "./components/SearchPanel";
 import { UploadPanel } from "./components/UploadPanel";
+
+type Mode = "search" | "browse";
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
@@ -27,6 +30,8 @@ function App() {
   const [selectedApi, setSelectedApi] = useState<ApiDoc | null>(null);
   const [selectedSearchDoc, setSelectedSearchDoc] = useState<SearchDoc | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [mode, setMode] = useState<Mode>("search");
+  const [browseCloud, setBrowseCloud] = useState<string | null>(null);
   const [activeJob, setActiveJob] = useState<UploadJob | null>(null);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -75,6 +80,22 @@ function App() {
     setSelectedApi(detail);
     setSelectedSearchDoc(searchResult?.doc?.api_id === apiId ? searchResult.doc : null);
     setDrawerOpen(true);
+  }
+
+  async function openApiDetail(apiId: string) {
+    try {
+      const detail = await getApiDetail(apiId);
+      setSelectedApi(detail);
+      setSelectedSearchDoc(null);
+      setDrawerOpen(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "加载详情失败");
+    }
+  }
+
+  function browseByCloud(cloud: string) {
+    setBrowseCloud(cloud);
+    setMode("browse");
   }
 
   async function handleUpload(files: File[], mode: "incremental" | "rebuild") {
@@ -138,13 +159,14 @@ function App() {
             <h2>云分布</h2>
             <Boxes size={17} />
           </div>
+          <p className="panel-hint">点击任一云，浏览其下全部接口</p>
           <div className="cloud-list">
-            {stats?.clouds.slice(0, 8).map((item) => (
+            {stats?.clouds.slice(0, 10).map((item) => (
               <button
                 type="button"
                 key={item.name}
-                className={filters.cloud === item.name ? "active" : ""}
-                onClick={() => setFilters({ ...filters, cloud: filters.cloud === item.name ? undefined : item.name })}
+                className={mode === "browse" && browseCloud === item.name ? "active" : ""}
+                onClick={() => browseByCloud(item.name)}
               >
                 <span>{item.name}</span>
                 <strong>{item.count}</strong>
@@ -162,9 +184,27 @@ function App() {
                 <Sparkles size={14} />
                 API 文档助手
               </span>
-              <h2>用自然语言查找接口文档</h2>
+              <h2>{mode === "search" ? "用自然语言查找接口文档" : "按云浏览全部接口文档"}</h2>
             </div>
             <div className="topbar-actions">
+              <div className="mode-toggle">
+                <button
+                  type="button"
+                  className={mode === "search" ? "active" : ""}
+                  onClick={() => setMode("search")}
+                >
+                  <Search size={14} />
+                  检索
+                </button>
+                <button
+                  type="button"
+                  className={mode === "browse" ? "active" : ""}
+                  onClick={() => setMode("browse")}
+                >
+                  <Compass size={14} />
+                  浏览
+                </button>
+              </div>
               <span className="time-chip">
                 <Clock3 size={14} />
                 {formatDate(stats?.last_updated_at)}
@@ -183,6 +223,15 @@ function App() {
             </div>
           )}
 
+          {mode === "browse" ? (
+            <BrowsePanel
+              cloud={browseCloud}
+              clouds={stats?.clouds ?? []}
+              onCloudChange={setBrowseCloud}
+              onOpenApi={openApiDetail}
+            />
+          ) : (
+            <>
           <SearchPanel
             query={query}
             filters={filters}
@@ -261,6 +310,8 @@ function App() {
               )}
             </div>
           </section>
+            </>
+          )}
         </section>
       </main>
 

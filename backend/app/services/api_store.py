@@ -39,6 +39,37 @@ class ApiStore:
     def all(self) -> List[Dict[str, Any]]:
         return list(self._apis.values())
 
+    def list_filtered(
+        self,
+        cloud: Optional[str] = None,
+        app: Optional[str] = None,
+        api_type: Optional[str] = None,
+        q: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        items = self.all()
+        if cloud:
+            items = [api for api in items if api.get("cloud") == cloud]
+        if app:
+            items = [api for api in items if api.get("app") == app]
+        if api_type:
+            items = [api for api in items if api.get("api_type") == api_type]
+        if q:
+            needle = q.lower()
+            items = [
+                api
+                for api in items
+                if needle
+                in (api.get("name", "") + api.get("number", "") + api.get("url", "")).lower()
+            ]
+        items.sort(key=lambda api: (api.get("app", ""), api.get("name", "")))
+        total = len(items)
+        limit = max(1, min(limit, 500))
+        offset = max(0, offset)
+        page = items[offset : offset + limit]
+        return {"total": total, "limit": limit, "offset": offset, "items": page}
+
     def get(self, api_id: str) -> Optional[ApiDoc]:
         api = self._apis.get(api_id)
         return ApiDoc(**api) if api else None

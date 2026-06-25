@@ -1,4 +1,4 @@
-import type { ApiDoc, IndexStats, SearchFilters, SearchResponse, UploadJob } from "./types";
+import type { ApiDoc, ApiListResponse, IndexStats, SearchFilters, SearchResponse, UploadJob } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api";
 
@@ -43,4 +43,22 @@ export async function searchApis(query: string, filters: SearchFilters, topK = 6
 
 export async function getApiDetail(apiId: string): Promise<ApiDoc> {
   return request<ApiDoc>(`/apis/${apiId}`);
+}
+
+export async function listApis(params: {
+  cloud?: string;
+  app?: string;
+  api_type?: string;
+  q?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<ApiListResponse> {
+  const search = new URLSearchParams();
+  if (params.cloud) search.set("cloud", params.cloud);
+  if (params.app) search.set("app", params.app);
+  if (params.api_type) search.set("api_type", params.api_type);
+  if (params.q) search.set("q", params.q);
+  search.set("limit", String(params.limit ?? 50));
+  search.set("offset", String(params.offset ?? 0));
+  return request<ApiListResponse>(`/apis?${search.toString()}`);
 }
