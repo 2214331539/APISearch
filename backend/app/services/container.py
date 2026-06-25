@@ -15,7 +15,6 @@ from app.services.vector_store import LocalVectorStore
 settings.ensure_dirs()
 api_store = ApiStore(settings.api_store_path, settings.seed_index_path)
 job_store = JobStore(settings.job_store_path)
-ingestion_service = IngestionService(api_store, job_store)
 
 query_rewriter = None
 if settings.enable_llm_agent:
@@ -34,6 +33,9 @@ if settings.enable_vector_search and embedder.available:
     vector_index = VectorIndexService(
         embedder, vector_store, query_prefix=settings.embedding_query_prefix
     )
+
+# Ingestion keeps the vector index in step incrementally on every upload.
+ingestion_service = IngestionService(api_store, job_store, vector_index=vector_index)
 
 search_service = SearchService(
     api_store, query_rewriter=query_rewriter, vector_index=vector_index

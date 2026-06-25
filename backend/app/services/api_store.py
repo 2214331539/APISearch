@@ -4,7 +4,7 @@ import json
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from app.models.schemas import ApiDoc, IndexStats
 from app.services.identity import count_by, make_content_hash, now_utc
@@ -38,6 +38,14 @@ class ApiStore:
 
     def all(self) -> List[Dict[str, Any]]:
         return list(self._apis.values())
+
+    def raw_many(self, ids: Iterable[str]) -> List[Dict[str, Any]]:
+        """Internal api dicts for the given ids (skips unknown ids).
+
+        Used by the ingestion pipeline to feed just the changed APIs into the
+        incremental vector update.
+        """
+        return [self._apis[api_id] for api_id in ids if api_id in self._apis]
 
     def list_filtered(
         self,
@@ -74,8 +82,9 @@ class ApiStore:
         api = self._apis.get(api_id)
         return ApiDoc(**api) if api else None
 
-    def upsert_many(self, raw_apis: List[Dict[str, Any]], source_type: str, mode: str = "incremental") -> Dict[str, int]:
-        stats = {"created": 0, "updated": 0, "skipped": 0, "total": 0}
+    def upsert_many(self, raw_apis: List[Dict[str, Any]], source_type: str, mode: str = "incremental") -> Dict[str, Any]:
+        stats: Dict[str, Any] = {"created": 0, "updated": 0, "skipped": 0, "total": 0}
+        changed_ids: List[str] = []  # created + updated; what the vector index must re-embed
         normalized = [normalize_api(item, source_type=source_type) for item in raw_apis]
         with self._lock:
             if mode == "rebuild":
@@ -90,14 +99,17 @@ class ApiStore:
                     api["updated_at"] = now_utc()
                     self._apis[api_id] = api
                     stats["created"] += 1
+                    changed_ids.append(api_id)
                 elif existing.get("content_hash") != api.get("content_hash"):
                     api["created_at"] = existing.get("created_at") or now_utc()
                     api["updated_at"] = now_utc()
                     self._apis[api_id] = api
                     stats["updated"] += 1
+                    changed_ids.append(api_id)
                 else:
                     stats["skipped"] += 1
             self.save()
+        stats["changed_ids"] = changed_ids
         return stats
 
     def stats(self) -> IndexStats:

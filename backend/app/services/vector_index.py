@@ -56,13 +56,17 @@ class VectorIndexService:
     def is_ready(self) -> bool:
         return self.store.ready
 
-    def rebuild(self, apis: List[Dict], batch_log=None) -> int:
+    def _chunk_texts(self, apis: List[Dict]) -> Tuple[List[str], List[Dict]]:
         texts: List[str] = []
         payloads: List[Dict] = []
         for api in apis:
             for chunk_type, text in build_chunks(api):
                 texts.append(text)
                 payloads.append({"api_id": api["api_id"], "chunk_type": chunk_type})
+        return texts, payloads
+
+    def rebuild(self, apis: List[Dict], batch_log=None) -> int:
+        texts, payloads = self._chunk_texts(apis)
         if not texts:
             return 0
         if batch_log:
@@ -71,6 +75,27 @@ class VectorIndexService:
         self.store.replace(vectors, payloads)
         if batch_log:
             batch_log(f"stored {self.store.size} vectors (dim={vectors.shape[1]})")
+        return self.store.size
+
+    def upsert_apis(self, apis: List[Dict]) -> int:
+        """Re-embed only the given (created/updated) APIs and upsert them.
+
+        Old chunks for these api_ids are dropped and replaced, so an API whose
+        params shrank doesn't leave stale vectors behind. Everything else in the
+        index is left untouched.
+        """
+        ids = [api["api_id"] for api in apis]
+        if not ids:
+            return self.store.size
+        texts, payloads = self._chunk_texts(apis)
+        vectors = (
+            self.embedder.embed(texts) if texts else np.empty((0, 0), dtype=np.float32)
+        )
+        self.store.upsert(ids, vectors, payloads)
+        return self.store.size
+
+    def remove_apis(self, api_ids: List[str]) -> int:
+        self.store.remove(api_ids)
         return self.store.size
 
     def api_scores(self, queries) -> Dict[str, float]:
@@ -82,15 +107,18 @@ class VectorIndexService:
         if isinstance(queries, str):
             queries = [queries]
         variants = [self.query_prefix + q for q in queries if q and q.strip()]
-        if not self.is_ready or not variants:
+        # Take one consistent snapshot so a concurrent incremental upsert can't
+        # desync vectors from payloads mid-scoring.
+        vectors, payloads = self.store.snapshot()
+        if vectors is None or not payloads or not variants:
             return {}
         qvecs = self.embedder.embed(variants)  # (V, dim)
         # Best similarity across query variants for every stored vector.
         with np.errstate(all="ignore"):
-            per_vector = self.store.vectors @ qvecs.T  # (N, V)
+            per_vector = vectors @ qvecs.T  # (N, V)
         best = per_vector.max(axis=1)
         scores: Dict[str, float] = {}
-        for payload, cos in zip(self.store.payloads, best):
+        for payload, cos in zip(payloads, best):
             api_id = payload["api_id"]
             value = float(cos)
             if value > scores.get(api_id, -1.0):

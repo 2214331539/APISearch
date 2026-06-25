@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 from typing import List
 
@@ -19,6 +20,7 @@ class LocalEmbeddingProvider:
         self.cache_dir = Path(cache_dir)
         self._model = None
         self._dim: int | None = None
+        self._load_lock = threading.Lock()
 
     @property
     def available(self) -> bool:
@@ -29,14 +31,18 @@ class LocalEmbeddingProvider:
         ).exists()
 
     def _ensure_model(self):
+        # Double-checked locking: the model is loaded once even if a search and a
+        # background ingestion both reach for it at the same time.
         if self._model is None:
-            from fastembed import TextEmbedding
+            with self._load_lock:
+                if self._model is None:
+                    from fastembed import TextEmbedding
 
-            self._model = TextEmbedding(
-                model_name=self.model_name,
-                cache_dir=str(self.cache_dir),
-                local_files_only=True,
-            )
+                    self._model = TextEmbedding(
+                        model_name=self.model_name,
+                        cache_dir=str(self.cache_dir),
+                        local_files_only=True,
+                    )
         return self._model
 
     def embed(self, texts: List[str]) -> np.ndarray:
