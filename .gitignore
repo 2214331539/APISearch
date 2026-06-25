@@ -33,11 +33,14 @@ storage/uploads/
 storage/snapshots/
 storage/tmp/
 storage/cache/
+storage/models/
+storage/vectors*.json
 
 # API source documents and generated API document indexes
 API服务*/
 api_index*.json
 接口文档汇总*.md
+*接口汇总文档.md
 *.dts
 *.openapi.json
 *.openapi.yaml

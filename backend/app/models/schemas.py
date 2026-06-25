@@ -94,6 +94,8 @@ class SearchCandidate(BaseModel):
 class SearchTrace(BaseModel):
     normalized_query: str
     retrieval_methods: List[str]
+    rewritten_query: Optional[str] = None
+    expanded_terms: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
 
 

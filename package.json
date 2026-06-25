@@ -6,6 +6,7 @@
     "frontend:dev": "npm --prefix frontend run dev",
     "frontend:build": "npm --prefix frontend run build",
     "backend:dev": "backend/.venv/bin/uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000",
-    "backend:test": "PYTHONPATH=backend backend/.venv/bin/python -m pytest backend/tests"
+    "backend:test": "PYTHONPATH=backend backend/.venv/bin/python -m pytest backend/tests",
+    "backend:build-vectors": "PYTHONPATH=backend backend/.venv/bin/python backend/build_vectors.py"
   }
 }

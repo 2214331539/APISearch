@@ -5,6 +5,7 @@ import re
 from typing import Any, Dict, Iterable, List, Set, Tuple
 
 from app.models.schemas import SearchCandidate, SearchRequest, SearchResponse, SearchTrace
+from app.services.agent_service import QueryRewriter
 from app.services.api_store import ApiStore
 from app.services.doc_render_service import to_search_doc
 
@@ -75,8 +76,15 @@ def cosine_ngram_score(query: str, text: str) -> float:
 
 
 class SearchService:
-    def __init__(self, api_store: ApiStore) -> None:
+    def __init__(
+        self,
+        api_store: ApiStore,
+        query_rewriter: "QueryRewriter | None" = None,
+        vector_index=None,
+    ) -> None:
         self.api_store = api_store
+        self.query_rewriter = query_rewriter
+        self.vector_index = vector_index
 
     def search(self, request: SearchRequest) -> SearchResponse:
         query = request.query.strip()
@@ -89,7 +97,46 @@ class SearchService:
             )
 
         filters = request.filters
-        terms = query_terms(query)
+        methods = ["exact", "keyword", "local-semantic"]
+
+        # LLM query rewrite/expansion (optional, with graceful fallback).
+        rewritten_query: str | None = None
+        expanded_terms: Set[str] = set()
+        if self.query_rewriter is not None:
+            rewrite = self.query_rewriter.rewrite(query)
+            if rewrite:
+                rewritten_query = rewrite.get("normalized_query") or None
+                for keyword in rewrite.get("keywords", []):
+                    normalized = normalize_text(keyword)
+                    if normalized:
+                        expanded_terms.add(normalized)
+                if rewritten_query or expanded_terms:
+                    methods.append("llm-rewrite")
+
+        terms = query_terms(query) | expanded_terms
+
+        # Vector recall (optional). Embed the rewritten/normalized query when the
+        # LLM produced one, otherwise the raw query. Scores are min-max scaled per
+        # query so the dense signal is comparable to the lexical ones.
+        vector_scores: Dict[str, float] = {}
+        if self.vector_index is not None and self.vector_index.is_ready:
+            try:
+                # Embed both the raw query (clean intent) and the LLM-normalized
+                # query (slang -> domain terms) and keep the best match per API.
+                dense_queries = [query]
+                if rewritten_query and rewritten_query != query:
+                    dense_queries.append(rewritten_query)
+                raw_scores = self.vector_index.api_scores(dense_queries)
+            except Exception:
+                raw_scores = {}
+            if raw_scores:
+                values = list(raw_scores.values())
+                low, high = min(values), max(values)
+                span = (high - low) or 1.0
+                vector_scores = {api_id: (value - low) / span for api_id, value in raw_scores.items()}
+                methods.append("vector")
+        use_vector = bool(vector_scores)
+
         scored: List[Tuple[float, Dict[str, Any], str]] = []
         for api in self.api_store.all():
             if filters.cloud and api.get("cloud") != filters.cloud:
@@ -112,9 +159,14 @@ class SearchService:
             full = primary + "\n" + api.get("search_text", "")
             exact = self._exact_score(query, api)
             keyword = min(token_score(terms, primary) * 0.08 + token_score(terms, full) * 0.015, 1.0)
-            semantic = cosine_ngram_score(query, full)
             field = self._field_score(query, api)
-            score = min(1.0, 0.38 * exact + 0.28 * keyword + 0.24 * semantic + 0.10 * field)
+            if use_vector:
+                vector = vector_scores.get(api.get("api_id", ""), 0.0)
+                score = min(1.0, 0.45 * vector + 0.25 * keyword + 0.20 * exact + 0.10 * field)
+                semantic = vector
+            else:
+                semantic = cosine_ngram_score(query, full)
+                score = min(1.0, 0.38 * exact + 0.28 * keyword + 0.24 * semantic + 0.10 * field)
             if score > 0.045:
                 scored.append((score, api, self._reason(query, terms, api, exact, keyword, semantic)))
 
@@ -144,7 +196,9 @@ class SearchService:
                 candidates=[],
                 trace=SearchTrace(
                     normalized_query=normalize_text(query),
-                    retrieval_methods=["exact", "keyword", "local-semantic"],
+                    retrieval_methods=methods,
+                    rewritten_query=rewritten_query,
+                    expanded_terms=sorted(expanded_terms),
                     warnings=warnings,
                 ),
             )
@@ -169,7 +223,9 @@ class SearchService:
             doc=doc,
             trace=SearchTrace(
                 normalized_query=normalize_text(query),
-                retrieval_methods=["exact", "keyword", "local-semantic"],
+                retrieval_methods=methods,
+                rewritten_query=rewritten_query,
+                expanded_terms=sorted(expanded_terms),
                 warnings=warnings,
             ),
         )
@@ -226,6 +282,8 @@ class SearchService:
             reasons.append("关键词命中：" + "、".join(matched))
         if "批量" in query and "batch" in normalize_text(api.get("number", "") + api.get("name", "")):
             reasons.append("匹配批量操作")
-        if semantic > 0.08:
-            reasons.append("参数和说明语义相近")
+        if semantic > 0.5:
+            reasons.append("语义向量高度相关")
+        elif semantic > 0.08:
+            reasons.append("语义相关")
         return "；".join(reasons) or "综合文本相似度较高"
